@@ -1,0 +1,46 @@
+# Docker Compose for local development of myReqEng
+# Starts a PostgreSQL 16 container with persistent volume.
+#
+# Usage:
+#   docker compose up -d
+#   (or docker-compose up -d on older Docker versions)
+#
+# The application connects by default to localhost:5432/reqengdb
+# with user "reqeng" / password "reqengsecret"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: myreqeng-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: reqengdb
+      POSTGRES_USER: reqeng
+      POSTGRES_PASSWORD: reqengsecret
+    ports:
+      - "5433:5432"
+    volumes:
+      - myreqeng_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reqeng -d reqengdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: myreqeng:0.1.0-SNAPSHOT
+    container_name: myreqeng-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/reqengdb
+      SPRING_DATASOURCE_USERNAME: reqeng
+      SPRING_DATASOURCE_PASSWORD: reqengsecret
+      DISPLAY: ${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+
+volumes:
+  myreqeng_pgdata:
+    driver: local
